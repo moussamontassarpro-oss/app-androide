@@ -93,7 +93,36 @@ const getRealFlightStatus = async (flightIata) => {
     }
 };
 
-app.get('/', (req, res) => res.send('Flight Scanner Backend with Maps'));
+app.get('/', (req, res) => res.send('Flight Scanner Backend v3'));
+
+// Route Recherche Manuelle
+app.post('/manual-search', async (req, res) => {
+    try {
+        const { code } = req.body;
+        if (!code) return res.status(400).json({ error: 'Code manquant' });
+
+        const flightCode = code.replace(/\s+/g, '').toUpperCase(); // "af 123" -> "AF123"
+        console.log(`Recherche manuelle: ${flightCode}`);
+
+        const statusData = await getRealFlightStatus(flightCode);
+
+        if (statusData.status === 'Non trouvé') {
+            return res.json({ success: false, message: "Vol introuvable ou trop ancien." });
+        }
+
+        // Ajout à la surveillance
+        watchedFlights[flightCode] = { ...statusData, lastUpdate: new Date() };
+
+        res.json({
+            success: true,
+            flight: { flight: flightCode, ...statusData }
+        });
+
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ error: 'Erreur serveur' });
+    }
+});
 
 app.post('/scan-flight', upload.single('photo'), async (req, res) => {
     try {
